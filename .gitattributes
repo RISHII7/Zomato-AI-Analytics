@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# Normalise line endings so the repo behaves identically on Windows and Linux.
+# ---------------------------------------------------------------------------
+* text=auto eol=lf
+
+# Scripts that must keep LF to stay executable inside containers
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Windows-only scripts keep CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# ---------------------------------------------------------------------------
+# Binary — never diff, never munge
+# ---------------------------------------------------------------------------
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.svg   text
+*.pdf   binary
+*.xlsx  binary
+*.parquet binary
+*.avro  binary
+
+# ---------------------------------------------------------------------------
+# Linguist — this is a data/SQL project, not a "CSV project".
+# Stop GitHub from reporting the language bar as 99% CSV.
+# ---------------------------------------------------------------------------
+data/**            linguist-generated=true
+data/**            linguist-detectable=false
+*.csv              linguist-detectable=false
+docs/**            linguist-documentation=true
+*.sql              linguist-detectable=true
+*.sql              linguist-language=SQL
+
+# Datasets are checked in byte-for-byte: no EOL rewriting, no merge attempts.
+# Nobody reviews 300k rows by eye, and a normalised CSV is a corrupted CSV.
+*.csv   -text -merge
