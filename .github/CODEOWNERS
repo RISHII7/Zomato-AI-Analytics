@@ -1,0 +1,19 @@
+# Every path has an owner. Last matching pattern wins.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo.
+*                       @RISHII7
+
+# Infrastructure and access control — the blast radius here is an AWS account,
+# so these paths get looked at even when the diff is one line.
+/aws/                   @RISHII7
+/snowflake/             @RISHII7
+/.github/workflows/     @RISHII7
+
+# Anything that defines what a credential looks like or where it lives.
+/SECURITY.md            @RISHII7
+/.gitignore             @RISHII7
+/.env.example           @RISHII7
+
+# Datasets: changes here are almost never legitimate after initial load.
+/data/                  @RISHII7

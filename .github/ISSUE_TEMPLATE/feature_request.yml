@@ -1,0 +1,54 @@
+name: Feature request
+description: Propose a new model, dataset, capability or pipeline stage
+title: "feat: "
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What question can't be answered today?
+      description: >
+        Start from the analytical question, not the implementation. "We can't
+        see repeat-order rate by city" is a good opening; "add a dim_city
+        table" is a solution looking for a problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Where does it belong?
+      options:
+        - Source / datasets
+        - Lake — S3 / IAM
+        - Bronze / Raw
+        - Silver — dbt staging
+        - Gold — dbt marts
+        - AI lane
+        - Orchestration — Airflow
+        - Serve — Streamlit / Snowsight
+        - Docs / tooling
+    validations:
+      required: true
+
+  - type: textarea
+    id: cost
+    attributes:
+      label: Cost estimate
+      description: >
+        Warehouse credits, storage, and OpenAI tokens if the AI lane is
+        involved. This project runs on trial credits — a mart that refreshes
+        hourly against 23 M line items is a budget decision, not just a
+        modelling one.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,0 +1,59 @@
+name: Data quality issue
+description: A number looks wrong, a join drops rows, or a test fails
+title: "data: "
+labels: ["data-quality", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the pipeline *ran fine* but the data is wrong. That is a
+        different failure mode from a crash and it is the more dangerous one —
+        nothing alerts on a silently incorrect number.
+
+  - type: input
+    id: object
+    attributes:
+      label: Which table, model or column?
+      placeholder: ZOMATO.MARTS.FCT_ORDERS.sales_amount
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: The query that shows the problem
+      description: Paste SQL and its output, so the next person can reproduce it in one paste.
+      render: sql
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the value should be, and how you know
+      description: >
+        Reconciliation against the source CSV, a hand calculation, or a
+        cross-check against another mart. Show the working.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Row loss — a join is dropping records
+        - Row inflation — a fan-out is duplicating records
+        - Wrong value — arithmetic or logic error
+        - Type / precision — rounding, truncation, timezone
+        - Nulls where nulls should not be
+        - Stale — data is correct but out of date
+        - Referential integrity — orphaned keys
+    validations:
+      required: true
+
+  - type: input
+    id: first-seen
+    attributes:
+      label: First observed
+      description: A date, or the commit/run that introduced it if you know.
