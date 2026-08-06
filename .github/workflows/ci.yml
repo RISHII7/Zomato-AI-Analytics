@@ -1,0 +1,117 @@
+name: CI
+
+# Cheap, hermetic checks only. Nothing here touches AWS, Snowflake or OpenAI —
+# CI has no credentials and should never need any. Warehouse-dependent checks
+# (dbt build, dbt test) belong in the Airflow run, not here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-sql:
+    name: SQL lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install sqlfluff
+        # 4.x is required: the 3.x Snowflake dialect cannot parse
+        # `CREATE STAGE ... STORAGE_INTEGRATION = ...` and reports it as an
+        # unparsable section. The rule set itself is configured in .sqlfluff.
+        run: pip install "sqlfluff==4.2.2"
+
+      - name: Lint Snowflake SQL
+        run: sqlfluff lint snowflake/ --dialect snowflake
+
+  lint-python:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install "ruff==0.7.4"
+
+      - name: Ruff check
+        run: ruff check scripts/
+
+      - name: Ruff format check
+        run: ruff format --check scripts/
+
+  validate-json:
+    name: IAM policy JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every policy must be parseable JSON
+        run: |
+          set -euo pipefail
+          find aws/ -name '*.json' -print0 | while IFS= read -r -d '' f; do
+            python -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+            echo "ok  $f"
+          done
+
+  validate-samples:
+    name: Sample referential integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: orders_sample must cover every order_items_sample row
+        run: python scripts/make_samples.py --check
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  guard-file-size:
+    name: No file over 100 MB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail the build before GitHub rejects the push
+        run: |
+          set -euo pipefail
+          limit=$((100 * 1024 * 1024))
+          oversized=$(find . -path ./.git -prune -o -type f -size +100M -print)
+          if [ -n "$oversized" ]; then
+            echo "::error::files above GitHub's 100 MB hard limit:"
+            echo "$oversized"
+            exit 1
+          fi
+          echo "ok — nothing above 100 MB"
