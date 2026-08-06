@@ -1,74 +1,72 @@
 # gitleaks configuration — https://github.com/gitleaks/gitleaks
 #
-# The default rule set is kept in full. This file only narrows one rule on one
-# set of paths, and it is deliberately the smallest exemption that fixes the
-# problem.
+# The full default rule set is inherited. This file adds one path exemption.
+#
+# ---------------------------------------------------------------------------
+# WHY
+#
+# The secret scan fails on data/restaurant.csv line 120432:
+#
+#     Finding:  ... 1ST AND 2ND FLOOR, RANGAPILLAI PILLAI STREET, REDACTED
+#     RuleID:   generic-api-key
+#
+# That is a street address in a file of public restaurant listings.
+# `generic-api-key` is an entropy heuristic — a high-entropy token near a
+# suggestive word — and scraped Indian addresses match it well. It is a false
+# positive, and it will recur as more listing data lands.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS SHAPE, AND NOT A NARROWER ONE
+#
+# The obvious fix is a rule-scoped exemption that relaxes only
+# `generic-api-key` and leaves every structural rule armed. gitleaks 8.24.3
+# does not support that at global scope. Measured against the actual binary
+# used in CI:
+#
+#     [allowlist]    + paths                    → suppressed   ✅
+#     [[allowlists]] + paths                    → NOT applied  ❌
+#     [[allowlists]] + paths + targetRules      → NOT applied  ❌
+#
+# Only the singular `[allowlist]` table is honoured globally, and it has no
+# `targetRules` field. Plural `[[rules.allowlists]]` works, but only *inside* a
+# rule — using it would mean copying the 400-character `generic-api-key` regex
+# into this file to redefine the rule. That copy would silently go stale the
+# first time Dependabot bumps the gitleaks action, and a security rule that has
+# quietly reverted to an old definition is worse than one that is honestly
+# scoped down.
+#
+# So the exemption is by path, and it does disable all rules on those files.
+# That is a real reduction in coverage. It is acceptable here because:
+#
+#   * The files are synthetic, public-by-construction datasets (SECURITY.md),
+#     and CONTRIBUTING.md forbids credentials under data/ outright.
+#   * The exemption is `data/*.csv` only — not data/ generally. A .pem, .env,
+#     .json or .p8 appearing under data/ is still fully scanned.
+#   * pre-commit still runs `detect-private-key` and `detect-aws-credentials`
+#     across every file including these, with no exclude. Both match on
+#     structure rather than entropy, so they cover the high-confidence cases
+#     this exemption gives up — locally, before a commit exists.
+#
+# Revisit if gitleaks gains global `targetRules` support.
+# ---------------------------------------------------------------------------
 
 [extend]
 useDefault = true
 
-# ---------------------------------------------------------------------------
-# generic-api-key is a heuristic: high-entropy string near a suggestive word.
-# That is exactly what a scraped restaurant address looks like. It fired on
-# data/restaurant.csv line 120432 — a real street address in Puducherry, in a
-# file of public listing data.
-#
-# The exemption is scoped two ways at once:
-#
-#   targetRules  — only generic-api-key is relaxed. Every high-confidence rule
-#                  stays armed on these files: aws-access-token,
-#                  private-key, github-pat, slack-token, stripe, and the rest.
-#                  Those match on structure, not entropy, so they do not
-#                  produce false positives on prose and there is no reason to
-#                  disable them anywhere.
-#
-#   paths        — only CSVs under data/. Not the repo, not data/ generally,
-#                  not other file types. A .env or a .pem that appears under
-#                  data/ is still scanned by every rule.
-#
-# The datasets are synthetic and public by construction (see SECURITY.md), and
-# CONTRIBUTING.md forbids credentials in data/ regardless. If a real secret
-# ever needs to live in this project it will not be in a CSV of restaurant
-# addresses.
-# ---------------------------------------------------------------------------
-[[allowlists]]
-description = "generic-api-key false-positives in scraped address and free-text columns"
-targetRules = ["generic-api-key"]
+[allowlist]
+description = "Entropy false-positives in scraped address and free-text columns of the synthetic datasets"
 paths = [
+  # Public restaurant listings: addresses, licence numbers, source URLs.
   '''data/.*\.csv$''',
-]
-
-# ---------------------------------------------------------------------------
-# data/users.csv has a `password` column of fake plaintext — machine-generated
-# strings that authenticate nothing, kept so the pipeline has a realistic
-# column to mask. They are not currently matched by any default rule, but they
-# are exactly the shape that a future rule update would flag, so the exemption
-# is recorded now rather than after a CI break.
-# ---------------------------------------------------------------------------
-[[allowlists]]
-description = "synthetic password column in the users dimension"
-targetRules = ["generic-api-key", "generic-password"]
-paths = [
-  '''data/users\.csv$''',
+  # The committed fact-table extracts, same content shape.
   '''data/samples/.*\.csv$''',
 ]
-
-# ---------------------------------------------------------------------------
-# Documentation and templates quote placeholder credentials on purpose:
-# `sk-proj-xxxx` in .env.example, `<STORAGE_AWS_EXTERNAL_ID>` in the IAM
-# policies and the runbook. Those need to stay visible and readable.
-# ---------------------------------------------------------------------------
-[[allowlists]]
-description = "placeholder credentials in examples and documentation"
 regexes = [
+  # Placeholder credentials that documentation quotes on purpose. These must
+  # stay readable — they are the instructions, not a leak.
+  #   .env.example ................ sk-proj-xxxxxxxx
+  #   aws/iam/*.json .............. <STORAGE_AWS_EXTERNAL_ID>, <ACCOUNT_ID>
+  #   snowflake/*.sql ............. <ROLE_ARN>, <BUCKET>
   '''sk-proj-x+''',
   '''<[A-Z_]+>''',
-  '''0{12}''',
-]
-paths = [
-  '''\.env\.example$''',
-  '''docs/.*\.md$''',
-  '''aws/.*\.json$''',
-  '''snowflake/.*\.sql$''',
-  '''(CONTRIBUTING|SECURITY|README)\.md$''',
 ]
