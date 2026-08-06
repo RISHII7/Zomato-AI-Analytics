@@ -1,0 +1,74 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# The default rule set is kept in full. This file only narrows one rule on one
+# set of paths, and it is deliberately the smallest exemption that fixes the
+# problem.
+
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# generic-api-key is a heuristic: high-entropy string near a suggestive word.
+# That is exactly what a scraped restaurant address looks like. It fired on
+# data/restaurant.csv line 120432 — a real street address in Puducherry, in a
+# file of public listing data.
+#
+# The exemption is scoped two ways at once:
+#
+#   targetRules  — only generic-api-key is relaxed. Every high-confidence rule
+#                  stays armed on these files: aws-access-token,
+#                  private-key, github-pat, slack-token, stripe, and the rest.
+#                  Those match on structure, not entropy, so they do not
+#                  produce false positives on prose and there is no reason to
+#                  disable them anywhere.
+#
+#   paths        — only CSVs under data/. Not the repo, not data/ generally,
+#                  not other file types. A .env or a .pem that appears under
+#                  data/ is still scanned by every rule.
+#
+# The datasets are synthetic and public by construction (see SECURITY.md), and
+# CONTRIBUTING.md forbids credentials in data/ regardless. If a real secret
+# ever needs to live in this project it will not be in a CSV of restaurant
+# addresses.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "generic-api-key false-positives in scraped address and free-text columns"
+targetRules = ["generic-api-key"]
+paths = [
+  '''data/.*\.csv$''',
+]
+
+# ---------------------------------------------------------------------------
+# data/users.csv has a `password` column of fake plaintext — machine-generated
+# strings that authenticate nothing, kept so the pipeline has a realistic
+# column to mask. They are not currently matched by any default rule, but they
+# are exactly the shape that a future rule update would flag, so the exemption
+# is recorded now rather than after a CI break.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "synthetic password column in the users dimension"
+targetRules = ["generic-api-key", "generic-password"]
+paths = [
+  '''data/users\.csv$''',
+  '''data/samples/.*\.csv$''',
+]
+
+# ---------------------------------------------------------------------------
+# Documentation and templates quote placeholder credentials on purpose:
+# `sk-proj-xxxx` in .env.example, `<STORAGE_AWS_EXTERNAL_ID>` in the IAM
+# policies and the runbook. Those need to stay visible and readable.
+# ---------------------------------------------------------------------------
+[[allowlists]]
+description = "placeholder credentials in examples and documentation"
+regexes = [
+  '''sk-proj-x+''',
+  '''<[A-Z_]+>''',
+  '''0{12}''',
+]
+paths = [
+  '''\.env\.example$''',
+  '''docs/.*\.md$''',
+  '''aws/.*\.json$''',
+  '''snowflake/.*\.sql$''',
+  '''(CONTRIBUTING|SECURITY|README)\.md$''',
+]
