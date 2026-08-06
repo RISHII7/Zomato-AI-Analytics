@@ -1,0 +1,36 @@
+[project]
+name = "zomato-ai-analytics"
+version = "0.1.0"
+description = "AI-native analytics stack on Zomato order data: S3 to Snowflake to dbt to OpenAI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Rishikesh Palande", email = "rishikesh.palande07@gmail.com" }]
+
+[tool.ruff]
+# 88 is cramped for SQL strings and long Snowflake identifiers.
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "docs"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear — mutable defaults, shadowed loop vars
+    "UP",   # pyupgrade
+    "SIM",  # simplifiable constructs
+    "PTH",  # prefer pathlib over os.path
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length is enforced by the formatter, not the linter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["scripts"]
+
+[tool.ruff.format]
+quote-style = "double"

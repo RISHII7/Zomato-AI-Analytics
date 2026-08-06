@@ -1,0 +1,66 @@
+# sqlfluff configuration — https://docs.sqlfluff.com
+#
+# The scripts under snowflake/ are hand-run provisioning worksheets, not dbt
+# models. They are DDL and GRANT statements formatted for readability in a
+# Snowsight worksheet — aligned `=` signs in CREATE WAREHOUSE, a trailing
+# comment on each option explaining the choice.
+#
+# `rules` is an allowlist rather than an exclusion list, for two reasons:
+#
+#   1. The layout rules are tuned for SELECT-heavy dbt models. Applied to DDL
+#      they fight the alignment that makes these scripts readable, and the
+#      alignment is the point.
+#   2. `references.keywords` (RF04) is off deliberately. RAW mirrors the source
+#      CSVs column-for-column, and those files ship columns called `name`,
+#      `password`, `comment` and `menu`. Renaming them in RAW would break the
+#      positional COPY and hide the source's actual shape — the right place to
+#      fix a bad column name is STAGING, not the landing zone.
+#
+# What is left enforces the things that are genuinely worth failing a build
+# over: keywords, functions, literals and types consistently cased, every
+# statement terminated, every file ending in a newline.
+#
+# Pinned to sqlfluff 4.x in CI: 3.2.5's Snowflake dialect cannot parse
+# `CREATE STAGE ... STORAGE_INTEGRATION = ...` and reports it unparsable.
+
+[sqlfluff]
+dialect = snowflake
+templater = raw
+max_line_length = 120
+rules = capitalisation.keywords,capitalisation.functions,capitalisation.literals,capitalisation.types,convention.terminator,layout.end_of_file,convention.not_equal
+
+[sqlfluff:indentation]
+tab_space_size = 2
+indented_joins = false
+indented_ctes = false
+implicit_indents = allow
+
+# Keywords, functions and data types upper case; identifiers left alone because
+# Snowflake object names in this repo are already deliberately upper case.
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = consistent
+
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+
+[sqlfluff:rules:aliasing.column]
+aliasing = explicit
+
+[sqlfluff:rules:convention.select_trailing_comma]
+select_clause_trailing_comma = forbid
+
+[sqlfluff:rules:convention.terminator]
+multiline_newline = false
+require_final_semicolon = true
