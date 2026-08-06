@@ -347,13 +347,23 @@ it. This is the single easiest way to get a wrong number out of this dataset.
 `reviews` on `order_id` fans the fact table out. Aggregate reviews to one row
 per order first, or accept the duplication deliberately and document it.
 
-### Restaurant keys in facts may not exist in the dimension
+### Referential integrity holds — measured, not assumed
 
-`orders.r_id` spans 92,982 distinct values in the first 200k rows against
-148,541 restaurants, but referential integrity is not guaranteed across the
-full 10 M. Use a `relationships` test to find out how many orphans there are,
-and decide between an inner join (drops revenue) and a left join with an
-unknown-member row (keeps it). Do not discover this by watching a total change.
+This section previously flagged foreign keys as unverified. They have since
+been checked by scanning **all 10,000,000 orders** against both dimension
+sources:
+
+| | Distinct in dimension | Orphans in `orders` |
+| --- | --- | --- |
+| `orders.user_id` → `users.user_id` | 100,000 | **0** |
+| `orders.r_id` → `restaurant.id` | 148,541 | **0** |
+
+Every order resolves to a real customer and a real restaurant. So an inner
+join to either dimension drops nothing, and no unknown-member row is needed.
+
+Both are worth asserting rather than trusting, because the guarantee is a
+property of this snapshot rather than of the pipeline. `fct_orders` carries a
+`relationships` test on `customer_id`; `restaurant_id` deserves the same one.
 
 ### `menu.price` ≠ `order_items.price`
 
