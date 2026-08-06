@@ -1,0 +1,72 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# The full default rule set is inherited. This file adds one path exemption.
+#
+# ---------------------------------------------------------------------------
+# WHY
+#
+# The secret scan fails on data/restaurant.csv line 120432:
+#
+#     Finding:  ... 1ST AND 2ND FLOOR, RANGAPILLAI PILLAI STREET, REDACTED
+#     RuleID:   generic-api-key
+#
+# That is a street address in a file of public restaurant listings.
+# `generic-api-key` is an entropy heuristic — a high-entropy token near a
+# suggestive word — and scraped Indian addresses match it well. It is a false
+# positive, and it will recur as more listing data lands.
+#
+# ---------------------------------------------------------------------------
+# WHY THIS SHAPE, AND NOT A NARROWER ONE
+#
+# The obvious fix is a rule-scoped exemption that relaxes only
+# `generic-api-key` and leaves every structural rule armed. gitleaks 8.24.3
+# does not support that at global scope. Measured against the actual binary
+# used in CI:
+#
+#     [allowlist]    + paths                    → suppressed   ✅
+#     [[allowlists]] + paths                    → NOT applied  ❌
+#     [[allowlists]] + paths + targetRules      → NOT applied  ❌
+#
+# Only the singular `[allowlist]` table is honoured globally, and it has no
+# `targetRules` field. Plural `[[rules.allowlists]]` works, but only *inside* a
+# rule — using it would mean copying the 400-character `generic-api-key` regex
+# into this file to redefine the rule. That copy would silently go stale the
+# first time Dependabot bumps the gitleaks action, and a security rule that has
+# quietly reverted to an old definition is worse than one that is honestly
+# scoped down.
+#
+# So the exemption is by path, and it does disable all rules on those files.
+# That is a real reduction in coverage. It is acceptable here because:
+#
+#   * The files are synthetic, public-by-construction datasets (SECURITY.md),
+#     and CONTRIBUTING.md forbids credentials under data/ outright.
+#   * The exemption is `data/*.csv` only — not data/ generally. A .pem, .env,
+#     .json or .p8 appearing under data/ is still fully scanned.
+#   * pre-commit still runs `detect-private-key` and `detect-aws-credentials`
+#     across every file including these, with no exclude. Both match on
+#     structure rather than entropy, so they cover the high-confidence cases
+#     this exemption gives up — locally, before a commit exists.
+#
+# Revisit if gitleaks gains global `targetRules` support.
+# ---------------------------------------------------------------------------
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Entropy false-positives in scraped address and free-text columns of the synthetic datasets"
+paths = [
+  # Public restaurant listings: addresses, licence numbers, source URLs.
+  '''data/.*\.csv$''',
+  # The committed fact-table extracts, same content shape.
+  '''data/samples/.*\.csv$''',
+]
+regexes = [
+  # Placeholder credentials that documentation quotes on purpose. These must
+  # stay readable — they are the instructions, not a leak.
+  #   .env.example ................ sk-proj-xxxxxxxx
+  #   aws/iam/*.json .............. <STORAGE_AWS_EXTERNAL_ID>, <ACCOUNT_ID>
+  #   snowflake/*.sql ............. <ROLE_ARN>, <BUCKET>
+  '''sk-proj-x+''',
+  '''<[A-Z_]+>''',
+]
