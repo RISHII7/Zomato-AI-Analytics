@@ -1,0 +1,79 @@
+name: Bug report
+description: Something in the pipeline behaves incorrectly
+title: "fix: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: if this is a **credential leak or an exploitable
+        weakness**, do not open an issue. Follow [SECURITY.md](../blob/main/SECURITY.md).
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer?
+      options:
+        - Source / datasets
+        - Lake — S3 / IAM
+        - Bronze / Raw — Snowflake load
+        - Silver — dbt staging
+        - Gold — dbt marts
+        - AI lane — enrichment / RAG / text-to-SQL
+        - Orchestration — Airflow
+        - Serve — Streamlit / Snowsight
+        - Docs / tooling
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact error text, and the Snowflake query ID if there is one.
+      placeholder: |
+        COPY INTO ZOMATO.RAW.ORDERS failed with:
+        Number of columns in file (18) does not match that of the corresponding table (19)
+        Query ID: 01b2c3d4-0000-...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The specific script or model, and the role you ran it as.
+      placeholder: |
+        1. Run snowflake/03_stage_and_formats.sql as ACCOUNTADMIN
+        2. Run the COPY for the orders folder
+        3. Observe the column-count error
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      value: |
+        - Snowflake edition / region:
+        - Warehouse size:
+        - Role used:
+        - dbt version (`dbt --version`):
+        - Python version:
+        - OS:
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Blast radius
+      description: How many rows, models or downstream marts are affected? Is bad data already in Gold?

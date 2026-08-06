@@ -1,0 +1,149 @@
+name: CI
+
+# Cheap, hermetic checks only. Nothing here touches AWS, Snowflake or OpenAI —
+# CI has no credentials and should never need any. Warehouse-dependent checks
+# (dbt build, dbt test) belong in the Airflow run, not here.
+#
+# Every job guards on its target path existing. The project lands one layer at
+# a time, so a check must be able to say "nothing to check yet" without failing
+# the build — a red X for a directory that has not been written yet teaches
+# people to ignore red Xs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-sql:
+    name: SQL lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install sqlfluff
+        # 4.x is required: the 3.x Snowflake dialect cannot parse
+        # `CREATE STAGE ... STORAGE_INTEGRATION = ...` and reports it as an
+        # unparsable section. The rule set itself is configured in .sqlfluff.
+        run: pip install "sqlfluff==4.2.2"
+
+      - name: Lint Snowflake SQL
+        run: |
+          set -euo pipefail
+          if [ ! -d snowflake ]; then
+            echo "::notice::snowflake/ does not exist on this ref — nothing to lint"
+            exit 0
+          fi
+          sqlfluff lint snowflake/ --dialect snowflake
+
+  lint-python:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install "ruff==0.15.10"
+
+      - name: Ruff check
+        run: |
+          set -euo pipefail
+          if [ ! -d scripts ]; then
+            echo "::notice::scripts/ does not exist on this ref — nothing to lint"
+            exit 0
+          fi
+          ruff check scripts/
+          ruff format --check scripts/
+
+  validate-json:
+    name: IAM policy JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every policy must be parseable JSON
+        # A malformed policy is otherwise only discovered at apply time, in the
+        # AWS console, with a worse error message.
+        run: |
+          set -euo pipefail
+          if [ ! -d aws ]; then
+            echo "::notice::aws/ does not exist on this ref — nothing to validate"
+            exit 0
+          fi
+          found=0
+          while IFS= read -r -d '' f; do
+            python -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+            echo "ok  $f"
+            found=$((found + 1))
+          done < <(find aws/ -name '*.json' -print0)
+          echo "validated $found policy file(s)"
+
+  validate-samples:
+    name: Sample referential integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: orders_sample must cover every order_items_sample row
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/make_samples.py ]; then
+            echo "::notice::sampler does not exist on this ref — nothing to check"
+            exit 0
+          fi
+          python scripts/make_samples.py --check
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  guard-file-size:
+    name: No file over 100 MB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail the build before GitHub rejects the push
+        # GitHub rejects oversized files at the far end of a push that may have
+        # taken minutes to upload, with an error that does not name the commit.
+        # Failing here is a better error message.
+        run: |
+          set -euo pipefail
+          oversized=$(find . -path ./.git -prune -o -type f -size +100M -print)
+          if [ -n "$oversized" ]; then
+            echo "::error::files above GitHub's 100 MB hard limit:"
+            echo "$oversized"
+            exit 1
+          fi
+          echo "ok — nothing above 100 MB"

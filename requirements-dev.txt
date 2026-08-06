@@ -1,0 +1,18 @@
+# Development and CI tooling only. Runtime dependencies (dbt, Airflow, the
+# Snowflake connector, the OpenAI SDK, Streamlit) arrive with the phases that
+# introduce them and will live in requirements.txt.
+#
+# Versions are pinned exactly. A linter that changes its mind between runs
+# turns CI red on a commit that touched nothing, and that trains people to
+# ignore CI.
+
+# --- SQL -------------------------------------------------------------------
+# 4.x required: the 3.x Snowflake dialect cannot parse
+# `CREATE STAGE ... STORAGE_INTEGRATION = ...`.
+sqlfluff==4.2.2
+
+# --- Python ----------------------------------------------------------------
+ruff==0.15.10
+
+# --- Pre-commit ------------------------------------------------------------
+pre-commit==4.0.1
