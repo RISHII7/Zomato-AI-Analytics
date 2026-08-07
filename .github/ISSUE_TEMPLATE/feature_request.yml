@@ -43,7 +43,7 @@ body:
     attributes:
       label: Cost estimate
       description: >
-        Warehouse credits, storage, and OpenAI tokens if the AI lane is
+        Warehouse credits, storage, and Gemini tokens if the AI lane is
         involved. This project runs on trial credits — a mart that refreshes
         hourly against 23 M line items is a budget decision, not just a
         modelling one.

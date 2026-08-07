@@ -1,6 +1,6 @@
 name: CI
 
-# Cheap, hermetic checks only. Nothing here touches AWS, Snowflake or OpenAI —
+# Cheap, hermetic checks only. Nothing here touches AWS, Snowflake or Gemini —
 # CI has no credentials and should never need any. Warehouse-dependent checks
 # (dbt build, dbt test) belong in the Airflow run, not here.
 #

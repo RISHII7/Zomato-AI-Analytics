@@ -1,7 +1,7 @@
 [project]
 name = "zomato-ai-analytics"
 version = "0.1.0"
-description = "AI-native analytics stack on Zomato order data: S3 to Snowflake to dbt to OpenAI"
+description = "AI-native analytics stack on Zomato order data: S3 to Snowflake to dbt to Gemini"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }

@@ -202,7 +202,7 @@ Where things actually live:
 | ---------------------------- | ---------------------------------------- |
 | Snowflake key pair (`.p8`)   | local disk, `chmod 600`, gitignored      |
 | dbt credentials              | `~/.dbt/profiles.yml`, outside the repo  |
-| OpenAI API key               | `.env`, gitignored                       |
+| Gemini API key               | `.env`, gitignored                       |
 | AWS credentials              | `~/.aws/credentials` or an instance role |
 | Airflow connections          | Airflow's own secrets backend            |
 

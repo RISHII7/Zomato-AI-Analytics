@@ -46,7 +46,7 @@
 
 <!--
   This project runs on Snowflake trial credits. Any change to warehouse size,
-  auto-suspend, clustering, materialisation strategy or an OpenAI call volume
+  auto-suspend, clustering, materialisation strategy or a Gemini call volume
   needs a number here. "None" is a valid answer — say it explicitly.
 -->
 
