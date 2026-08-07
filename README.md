@@ -4,7 +4,7 @@
 
 **A production-shaped analytics stack on 33.6 million food-delivery orders — and an AI lane that reads, retrieves and queries them.**
 
-S3 → Snowflake → dbt → OpenAI → Streamlit, orchestrated with Airflow.
+S3 → Snowflake → dbt → Gemini → Streamlit, orchestrated with Airflow.
 
 [![CI](https://github.com/RISHII7/Zomato-AI-Analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/RISHII7/Zomato-AI-Analytics/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/RISHII7/Zomato-AI-Analytics?color=blue)](https://github.com/RISHII7/Zomato-AI-Analytics/releases)
@@ -83,7 +83,7 @@ To build the warehouse for real, follow **[docs/RUNBOOK.md](docs/RUNBOOK.md)**: 
 | Lake | **Amazon S3** | Cheap, durable, and the thing Snowflake integrates with natively via role assumption rather than keys |
 | Warehouse | **Snowflake** | Separated storage and compute means a 23 M-row load can run on MEDIUM and everything after it on XSMALL |
 | Transformation | **dbt** | Version-controlled SQL with tests and lineage. The tests are the point — this dataset has traps that only a test catches |
-| AI | **OpenAI** — `gpt-4o-mini`, `text-embedding-3-small` | Cheap enough to run over a real table; capable enough for structured extraction |
+| AI | **Google Gemini** — `gemini-2.5-flash`, `gemini-embedding-001` | Cheap enough to run over a real table; capable enough for structured extraction |
 | Orchestration | **Apache Airflow** | Four DAGs with real dependencies, not a cron file |
 | Serving | **Streamlit** + Snowsight | One for the self-serve app, one for warehouse-native dashboards |
 
@@ -308,7 +308,7 @@ Built to run on a Snowflake trial and the AWS free tier.
 
 The largest avoidable cost on a trial account is not a big query — it is a warehouse left running overnight. `AUTO_SUSPEND = 60` and `INITIALLY_SUSPENDED` are set for that reason.
 
-`OPENAI_MAX_ROWS_PER_RUN` in [`.env.example`](.env.example) is a budget guard: a loop bug in the enrichment job would otherwise spend a month's tokens unattended.
+`GEMINI_MAX_ROWS_PER_RUN` in [`.env.example`](.env.example) is a budget guard: a loop bug in the enrichment job would otherwise spend a month's quota unattended.
 
 ---
 

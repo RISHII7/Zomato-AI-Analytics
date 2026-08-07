@@ -3,7 +3,7 @@
 ## Scope
 
 This is a portfolio and learning project. It provisions real cloud resources —
-an S3 bucket, an AWS IAM role, a Snowflake account and an OpenAI API key — so
+an S3 bucket, an AWS IAM role, a Snowflake account and a Gemini API key — so
 the security posture is not theoretical even though the data is synthetic.
 
 ## Reporting a vulnerability
