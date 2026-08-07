@@ -7,6 +7,24 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Rishikesh Palande", email = "rishikesh.palande07@gmail.com" }]
 
+[tool.pyrefly]
+# airflow/dags/*.py import `airflow.providers.*`, which live in .venv-airflow —
+# a separate environment from the workspace interpreter (.venv, which has dbt).
+#
+# They cannot share one venv: Airflow pins protobuf below 5 through
+# OpenTelemetry, dbt-core 1.12 requires 6, and there is no pair of versions
+# satisfying both. airflow/Dockerfile splits them for the same reason.
+#
+# Configured here rather than in .vscode/settings.json because Pyrefly reads
+# its config from this file and takes the interpreter from the editor's
+# selection, which points at .venv. Listing both paths covers either.
+#
+# Windows layout. On macOS/Linux use `.venv-airflow/lib/python3.11/site-packages`.
+site-package-path = [
+    ".venv/Lib/site-packages",
+    ".venv-airflow/Lib/site-packages",
+]
+
 [tool.ruff]
 # 88 is cramped for SQL strings and long Snowflake identifiers.
 line-length = 100

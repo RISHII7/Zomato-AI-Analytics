@@ -1,0 +1,64 @@
+// Copy to .vscode/settings.json (gitignored) and adjust paths for your platform.
+//
+// This file is .jsonc, not .json, on purpose: VS Code parses `settings.json`
+// as JSONC and tolerates comments, but any *other* .json file is validated as
+// strict JSON and every comment below would be flagged as an error.
+//
+// ---------------------------------------------------------------------------
+// WHY THERE ARE TWO VIRTUAL ENVIRONMENTS
+//
+// dbt and Airflow cannot share one. Installing both into a single venv leaves
+// four unresolvable conflicts — measured, not guessed:
+//
+//   opentelemetry-proto 1.27.0     requires protobuf<5.0,  got 6.33.6
+//   snowflake-snowpark-python      requires protobuf<6,    got 6.33.6
+//   snowflake-snowpark-python      requires snowflake-connector-python<4.0.0, got 4.7.1
+//   snowflake-sqlalchemy 1.7.6     requires snowflake-connector-python<4.0.0, got 4.7.1
+//
+// Airflow pins protobuf below 5 through OpenTelemetry; dbt-core 1.12 wants 6.
+// There is no version of both that satisfies the other.
+//
+// This is the same reason airflow/Dockerfile installs dbt into its own venv at
+// /opt/airflow/dbt_venv rather than alongside Airflow. The local layout mirrors
+// the image deliberately.
+//
+//   .venv           dbt-snowflake 1.12.0     — what you actually run locally
+//   .venv-airflow   apache-airflow 3.0.3     — type-checking DAGs only
+//
+// Both report "No broken requirements found" under `pip check`.
+//
+// ---------------------------------------------------------------------------
+// SETUP
+//
+//   py -3.11 -m venv .venv
+//   .venv/Scripts/python -m pip install dbt-snowflake==1.12.0
+//
+//   py -3.11 -m venv .venv-airflow
+//   .venv-airflow/Scripts/python -m pip install -r requirements-airflow.txt \
+//     --constraint https://raw.githubusercontent.com/apache/airflow/constraints-3.0.3/constraints-3.11.txt
+//
+// Python 3.11 specifically: Airflow 3.0.3 does not support 3.13+.
+//
+// On macOS/Linux replace `Scripts/python.exe` with `bin/python`.
+{
+  // Workspace interpreter is the dbt one — that is the environment you run
+  // commands in.
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+
+  // dbt Power User looks for a dbt binary. Without this it reports
+  // "dbt not found. Please install dbt to use this extension."
+  "dbt.dbtPythonPathOverride": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "dbt.dbtIntegration": "core",
+
+  // Pyrefly type-checks airflow/dags/, which imports airflow.providers.*.
+  // Those packages only exist in the Airflow venv, so the checker is pointed
+  // there independently of the workspace interpreter.
+  //
+  // Note: `import airflow` FAILS at runtime on Windows — os.register_at_fork
+  // does not exist there and Airflow's ORM setup calls it on import. That is
+  // fine: a static checker reads module files, it does not execute them. DAGs
+  // actually run in Docker.
+  "pyrefly.pythonInterpreter": "${workspaceFolder}/.venv-airflow/Scripts/python.exe",
+
+  "python.terminal.activateEnvironment": true
+}
