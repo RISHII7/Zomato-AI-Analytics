@@ -103,6 +103,11 @@ airflow/logs/
 # ---------------------------------------------------------------------------
 .streamlit/secrets.toml
 
+# Local embedding cache written by ai/rag_chat.py on first run. Regenerated
+# from Snowflake, and holds 3072-dimension vectors for every cached review —
+# derived data, not source.
+ai/review_embeddings.parquet
+
 # ---------------------------------------------------------------------------
 # Notebooks
 # ---------------------------------------------------------------------------
