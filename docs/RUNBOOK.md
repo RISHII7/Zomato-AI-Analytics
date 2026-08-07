@@ -1,15 +1,24 @@
-# Runbook — Phase 2: raw data into Snowflake
+# Runbook
 
-End-to-end setup, from an empty AWS account to 33.6 million rows in
-`ZOMATO.RAW`. Roughly 90 minutes, most of it the `order_items` upload and
-`COPY`.
+End-to-end setup, from an empty AWS account to a working warehouse, orchestrated
+pipeline and three AI applications. Roughly two hours, most of it the
+`order_items` upload and `COPY`.
 
-The AWS-side reasoning lives in [aws/README.md](../aws/README.md); this is the
-sequence to execute.
+Design reasoning lives in [ARCHITECTURE.md](ARCHITECTURE.md); the AWS-side
+detail in [aws/README.md](../aws/README.md). This is the sequence to execute.
+
+| Phase | Steps | Time |
+| ----- | ----- | ---- |
+| **2 — Raw into Snowflake** | 1–6 | ~90 min |
+| **3 — dbt** | 7–8 | ~15 min |
+| **4 — Airflow** | 9 | ~10 min |
+| **5 — AI lane** | 10 | ~5 min |
 
 ---
 
 ## Contents
+
+**Phase 2 — raw data into Snowflake**
 
 - [Before you start](#before-you-start)
 - [Step 1 — S3 bucket and upload](#step-1--s3-bucket-and-upload)
@@ -19,6 +28,22 @@ sequence to execute.
 - [Step 5 — RAW tables](#step-5--raw-tables)
 - [Step 6 — Load](#step-6--load)
 - [Verification](#verification)
+
+**Phase 3 — dbt**
+
+- [Step 7 — Configure the dbt profile](#step-7--configure-the-dbt-profile)
+- [Step 8 — Build the warehouse](#step-8--build-the-warehouse)
+
+**Phase 4 — Airflow**
+
+- [Step 9 — Start the stack](#step-9--start-the-stack)
+
+**Phase 5 — AI lane**
+
+- [Step 10 — Run the three apps](#step-10--run-the-three-apps)
+
+**Reference**
+
 - [Troubleshooting](#troubleshooting)
 - [Teardown](#teardown)
 
@@ -298,6 +323,175 @@ SELECT order_id, order_timestamp, sales_amount, order_status FROM RAW.orders LIM
 
 If `name` holds a city, the `_idx` column is misaligned — the CSV had no index
 column, or the table has a spurious `_idx`.
+
+---
+
+## Step 7 — Configure the dbt profile
+
+dbt reads credentials from `~/.dbt/profiles.yml`, outside the repo. Create it
+with a profile named `zomato`:
+
+```yaml
+zomato:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: <ACCOUNT>          # ab12345.ap-south-1 — not the full URL
+      user: <USER>
+      password: <PASSWORD>        # or private_key_path for key-pair auth
+      role: DBT_ROLE              # never ACCOUNTADMIN
+      warehouse: ZOMATO_WH
+      database: ZOMATO
+      schema: staging
+      threads: 4
+```
+
+Install and verify:
+
+```bash
+pip install "dbt-snowflake==1.12.0"
+cd zomato
+dbt debug        # checks the connection
+dbt parse        # checks the project compiles
+```
+
+`dbt debug` should report `All checks passed!`.
+
+> **Two `dbt` binaries can coexist on a machine.** `dbt-fusion` (the Rust
+> rewrite) takes `dbt init --project-name x` and rejects a positional argument
+> with a clap-style *"unexpected argument"* error that looks nothing like
+> dbt-core's. This project targets **dbt-core**. Check with `dbt --version` —
+> it should report `Core: 1.12.0` and `snowflake: 1.12.0`.
+
+### Expect one warning
+
+```text
+[WARNING]: Configuration paths exist in your dbt_project.yml file which
+do not apply to any resources.
+There are 1 unused configuration paths:
+- models.snapshot.zomato
+```
+
+Known and inert — see [MODELS.md](MODELS.md#smaller-items). `dbt parse` still
+exits 0.
+
+## Step 8 — Build the warehouse
+
+```bash
+cd zomato
+
+dbt build --exclude tag:ai      # everything except the AI mart
+```
+
+`--exclude tag:ai` matters: `mart_review_insights` reads `ZOMATO.AI.REVIEW_ENRICHED`,
+which does not exist until the enrichment task has run. Building it now
+produces an error or a stale result.
+
+Expect 16 models and 16 tests. The first run is the expensive one — the fact
+tables build in full before switching to incremental.
+
+To go faster, resize before and after:
+
+```sql
+ALTER WAREHOUSE ZOMATO_WH SET WAREHOUSE_SIZE = 'MEDIUM';
+-- run dbt build
+ALTER WAREHOUSE ZOMATO_WH SET WAREHOUSE_SIZE = 'XSMALL';
+```
+
+Verify:
+
+```sql
+SELECT COUNT(*) FROM ZOMATO.MARTS.FCT_ORDERS;        -- 10,000,000
+SELECT COUNT(*) FROM ZOMATO.MARTS.FACT_ORDER_ITEMS;  -- 22,998,179
+SELECT * FROM ZOMATO.MARTS.MART_DAILY_CITY_REVENUNE LIMIT 5;
+```
+
+---
+
+## Step 9 — Start the stack
+
+```bash
+cd airflow
+cp .env.example .env        # fill in SNOWFLAKE_* and GEMINI_API_KEY
+docker compose build
+docker compose up -d
+```
+
+UI at <http://localhost:8080>, login `admin` / `admin`.
+
+Five containers: `postgres`, `airflow-init`, `apiserver`, `scheduler`,
+`dag-processor`. Check them:
+
+```bash
+docker compose ps
+```
+
+Enable the `zomato_batch` DAG in the UI and trigger a run. Task order:
+
+```text
+reload_raw → dbt_build_core → enrich_reviews → dbt_build_ai
+```
+
+`reload_raw` is safe to repeat — Snowflake tracks load metadata per file for 64
+days and skips files it has already ingested, so an unchanged bucket is a no-op
+rather than a duplicate load.
+
+> **Port 8080 already allocated?** Another compose project is holding it. Either
+> stop that stack (`docker compose -p <name> down`) or remap this one's host
+> port. Only the host side may change — `AIRFLOW__CORE__EXECUTION_API_SERVER_URL`
+> points at `http://apiserver:8080/execution/`, which is container-to-container
+> and must stay 8080.
+
+---
+
+## Step 10 — Run the three apps
+
+```bash
+cd ai
+cp .env.example .env        # SNOWFLAKE_* and GEMINI_API_KEY
+pip install google-genai snowflake-connector-python python-dotenv \
+            streamlit pandas numpy pyarrow
+```
+
+Get a key from <https://aistudio.google.com/apikey>.
+
+### Enrichment
+
+```bash
+python enrich_reviews.py
+```
+
+Creates `ZOMATO.AI.REVIEW_ENRICHED` and classifies `SAMPLE_N` reviews. Idempotent
+— the select excludes `review_id`s already enriched. Then build the AI mart:
+
+```bash
+cd ../zomato && dbt build --select tag:ai
+```
+
+### RAG chat
+
+```bash
+streamlit run rag_chat.py
+```
+
+First load reads 100 reviews from `STG_REVIEWS`, embeds them, and caches the
+vectors to `review_embeddings.parquet`. Subsequent runs read the cache.
+
+### Text-to-SQL
+
+```bash
+streamlit run text_to_sql.py
+```
+
+> **Both apps must be launched with `streamlit run`.** `python app.py` executes
+> the file bare — no server, no session state — and emits a wall of
+> `missing ScriptRunContext` warnings. Add `--server.address localhost` for
+> local work: Streamlit binds `0.0.0.0` by default and prints an external URL,
+> which on an untrusted network exposes an app that queries your warehouse.
+
+See [AI_LANE.md](AI_LANE.md) for what each capability does and where its limits
+are.
 
 ---
 

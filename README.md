@@ -314,20 +314,29 @@ The largest avoidable cost on a trial account is not a big query — it is a war
 
 ## Project status
 
-Built in phases, each shipped as a tagged release.
+**v1.0.0 — complete.** Built in phases, each shipped as a tagged release.
 
-| Version | Phase | Status |
-| ------- | ----- | ------ |
+| Version | Phase | |
+| ------- | ----- | -- |
 | [`v0.1.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.1.0) | Repository foundation — CI, policies, templates | ✅ |
 | [`v0.2.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.2.0) | Source datasets and data dictionary | ✅ |
 | [`v0.3.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.3.0) | AWS lake and IAM trust handshake | ✅ |
-| `v0.4.0` | Snowflake foundation and RAW load | ✅ |
-| `v0.5.0` | Architecture documentation | ✅ |
-| `v0.6.0` | dbt staging layer — Silver | 🚧 |
-| `v0.7.0` | dbt marts — Gold | 📋 |
-| `v0.8.0` | AI lane — enrichment, RAG, text-to-SQL | 📋 |
-| `v0.9.0` | Airflow orchestration | 📋 |
-| `v1.0.0` | Streamlit app | 📋 |
+| [`v0.4.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.4.0) | Snowflake foundation and RAW load | ✅ |
+| [`v0.5.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.5.0) | Architecture documentation | ✅ |
+| [`v0.6.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.6.0) | dbt project scaffold | ✅ |
+| [`v0.7.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.7.0) | dbt Silver + Gold, 17 models, 16 tests | ✅ |
+| [`v0.8.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v0.8.0) | Airflow 3, and the AI lane on Gemini | ✅ |
+| [`v1.0.0`](https://github.com/RISHII7/Zomato-AI-Analytics/releases/tag/v1.0.0) | **Full documentation set** | ✅ |
+
+### What runs today
+
+| | |
+| --- | --- |
+| **33.6 M rows** | loaded from S3 into Snowflake |
+| **17 dbt models** | 7 staging views, 4 dimensions, 2 incremental facts, 4 marts |
+| **16 data tests** | uniqueness, not-null, referential integrity, accepted values |
+| **1 Airflow DAG** | 4 tasks, daily |
+| **3 AI apps** | enrichment, RAG, text-to-SQL — all on Gemini |
 
 ---
 
@@ -335,11 +344,15 @@ Built in phases, each shipped as a tagged release.
 
 | Document | What it covers |
 | -------- | -------------- |
-| **[docs/RUNBOOK.md](docs/RUNBOOK.md)** | Empty account → 33.6 M loaded rows, with a symptom-to-cause troubleshooting table |
-| **[docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md)** | All 61 columns, null patterns, sentinel values, known quality issues |
-| **[aws/README.md](aws/README.md)** | Bucket layout, the two IAM policies, the four-step handshake |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design, lineage, the five decisions worth defending, and what this design deliberately does *not* do |
+| **[docs/RUNBOOK.md](docs/RUNBOOK.md)** | Empty account → running pipeline in 10 steps, with a symptom-to-cause troubleshooting table |
+| **[docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md)** | All 61 source columns, null patterns, sentinel values, known quality issues |
+| **[docs/MODELS.md](docs/MODELS.md)** | Every model, test and source — plus the defects, documented rather than hidden |
+| **[docs/AI_LANE.md](docs/AI_LANE.md)** | The three AI capabilities, the OpenAI→Gemini migration, measured quotas |
+| **[aws/README.md](aws/README.md)** | Bucket layout, the two IAM policies, the four-step trust handshake |
 | **[SECURITY.md](SECURITY.md)** | Threat model, what is committed deliberately, leak response |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Branching, commit conventions, SQL style, review expectations |
+| **[CHANGELOG.md](CHANGELOG.md)** | Every release, written rather than generated |
 
 ---
 
