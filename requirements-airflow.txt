@@ -1,0 +1,29 @@
+# Local-only. Nothing here is needed to run the pipeline — the DAGs execute
+# inside the Docker image built by airflow/Dockerfile, where these packages
+# already exist.
+#
+# This file exists so an editor can resolve `airflow.*` imports in
+# airflow/dags/. Without it, Pyrefly (or Pylance, or mypy) reports
+# `missing-import` on every operator, and real errors get lost among the noise.
+#
+# Install into a Python 3.11 venv — Airflow 3.0.3 does not support 3.13+, and
+# a bare `pip install` without the constraint file resolves a dependency set
+# that does not match what ships in the image:
+#
+#     py -3.11 -m venv .venv
+#     .venv/Scripts/python -m pip install -r requirements-airflow.txt \
+#       --constraint https://raw.githubusercontent.com/apache/airflow/constraints-3.0.3/constraints-3.11.txt
+#
+# Then point the editor at .venv (VS Code: "Python: Select Interpreter").
+#
+# Note: `import airflow` FAILS at runtime on Windows —
+# `os.register_at_fork` does not exist there, and Airflow's ORM setup calls it
+# on import. That is fine and expected: a static type checker reads the module
+# files, it does not execute them. Actually running a DAG happens in Docker.
+#
+# Keep the version in step with airflow/Dockerfile.
+
+apache-airflow==3.0.3
+apache-airflow-providers-common-sql
+apache-airflow-providers-standard
+apache-airflow-providers-snowflake

@@ -60,7 +60,11 @@ wheels/
 MANIFEST
 
 # Virtual environments
+# Two of them: dbt and Airflow cannot share one — Airflow pins protobuf below 5
+# through OpenTelemetry while dbt-core 1.12 requires 6. Mirrors the split in
+# airflow/Dockerfile. See .vscode/settings.example.jsonc.
 .venv/
+.venv-airflow/
 venv/
 ENV/
 env/
@@ -109,7 +113,10 @@ airflow/logs/
 # ---------------------------------------------------------------------------
 .vscode/*
 !.vscode/extensions.json
-!.vscode/settings.example.json
+# .jsonc, not .json — VS Code parses settings.json as JSONC and allows
+# comments, but validates any other .json file as strict JSON, which would
+# flag every explanatory comment in the template as an error.
+!.vscode/settings.example.jsonc
 .idea/
 *.swp
 *.swo
