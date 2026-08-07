@@ -24,6 +24,19 @@
 # Keep the version in step with airflow/Dockerfile.
 
 apache-airflow==3.0.3
+
+# Only the providers the DAG actually imports. Deliberately NOT
+# apache-airflow-providers-snowflake: the image needs it at runtime for the
+# snowflake connection type, but installing it here drags in
+# snowflake-snowpark-python and snowflake-sqlalchemy, which pin
+# snowflake-connector-python<4 and protobuf<6 and break `pip check`. The DAG
+# reaches Snowflake through SQLExecuteQueryOperator in common.sql, so nothing
+# here needs it to type-check.
 apache-airflow-providers-common-sql
 apache-airflow-providers-standard
-apache-airflow-providers-snowflake
+
+# ai/enrich_reviews.py is mounted into the image at /opt/airflow/ai and run by
+# the DAG with the Airflow interpreter, so its imports belong here too. Keep in
+# step with airflow/Dockerfile.
+google-genai
+python-dotenv
