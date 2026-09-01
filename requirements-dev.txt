@@ -9,10 +9,10 @@
 # --- SQL -------------------------------------------------------------------
 # 4.x required: the 3.x Snowflake dialect cannot parse
 # `CREATE STAGE ... STORAGE_INTEGRATION = ...`.
-sqlfluff==4.2.2
+sqlfluff==4.3.0
 
 # --- Python ----------------------------------------------------------------
-ruff==0.16.1
+ruff==0.16.5
 
 # --- Pre-commit ------------------------------------------------------------
-pre-commit==4.6.1
+pre-commit==4.6.2
