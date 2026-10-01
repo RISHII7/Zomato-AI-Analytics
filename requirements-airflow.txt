@@ -23,7 +23,7 @@
 #
 # Keep the version in step with airflow/Dockerfile.
 
-apache-airflow==3.0.3
+apache-airflow==3.3.2
 
 # Only the providers the DAG actually imports. Deliberately NOT
 # apache-airflow-providers-snowflake: the image needs it at runtime for the
